@@ -141,17 +141,37 @@ class SkillFunctionContext:
 class ContextExtractor:
     """Extract comprehensive security context from skill scripts."""
 
-    SUSPICIOUS_DOMAINS = ["attacker.example.com", "evil.example.com", "malicious.com", "pastebin.com"]
+    # ONLY flag URLs to explicitly suspicious domains - not all unknown URLs
+    SUSPICIOUS_DOMAINS = [
+        # Known exfil/C2 services
+        "pastebin.com",
+        "hastebin.com",
+        "paste.ee",
+        "webhook.site",
+        "requestbin",
+        "ngrok.io",
+        "pipedream.net",
+        # Explicitly malicious example domains
+        "attacker.example.com",
+        "evil.example.com",
+        "malicious.com",
+        "c2-server.com",
+    ]
 
-    # Legitimate domains that should NOT be flagged as suspicious
+    # Domains that are always safe (not flagged even if matched by SUSPICIOUS_DOMAINS pattern)
     LEGITIMATE_DOMAINS = [
         # AI provider services
         "api.anthropic.com",
         "statsig.anthropic.com",
+        "api.openai.com",
+        "api.together.xyz",
+        "api.cohere.ai",
+        "generativelanguage.googleapis.com",
         # Code repositories
         "github.com",
         "gitlab.com",
         "bitbucket.org",
+        "raw.githubusercontent.com",
         # Package registries
         "registry.npmjs.org",
         "npmjs.com",
@@ -161,17 +181,48 @@ class ContextExtractor:
         "pypi.org",
         "files.pythonhosted.org",
         "pythonhosted.org",
+        "crates.io",
+        "rubygems.org",
+        "pkg.go.dev",
+        # Cloud provider APIs
+        "amazonaws.com",
+        "azure.com",
+        "googleapis.com",
+        "google.com",
+        "microsoft.com",
+        "cloudflare.com",
         # System packages
         "archive.ubuntu.com",
         "security.ubuntu.com",
+        "debian.org",
         # XML schemas (for OOXML document processing)
         "schemas.microsoft.com",
         "schemas.openxmlformats.org",
         "www.w3.org",
         "purl.org",
+        "json-schema.org",
         # Localhost and development
         "localhost",
         "127.0.0.1",
+        "0.0.0.0",
+        "::1",
+        # Common safe services
+        "stripe.com",
+        "slack.com",
+        "zoom.us",
+        "fathom.video",
+        "telegram.org",
+        "discord.com",
+        "twilio.com",
+        "sendgrid.com",
+        "mailgun.com",
+        "sentry.io",
+        "datadog.com",
+        "newrelic.com",
+        "elastic.co",
+        "mongodb.com",
+        "redis.io",
+        "postgresql.org",
     ]
 
     def extract_context(self, file_path: Path, source_code: str) -> SkillScriptContext:
@@ -258,7 +309,8 @@ class ContextExtractor:
         # Also collect module-level strings (class attributes, etc.)
         all_strings.extend(parser.module_strings)
 
-        # Find suspicious URLs (filter out legitimate domains and docstrings)
+        # Find suspicious URLs - ONLY flag URLs to known-bad destinations
+        # Don't flag unknown URLs - that creates too many false positives
         suspicious_urls = []
         for s in all_strings:
             # Skip if not URL-like or contains newlines (docstrings)
@@ -270,11 +322,9 @@ class ContextExtractor:
             # Skip if contains legitimate domain
             if any(domain in s for domain in self.LEGITIMATE_DOMAINS):
                 continue
-            # Flag if contains known suspicious domain OR is generic http URL
+            # ONLY flag if URL contains a known suspicious domain
+            # Don't flag all unknown URLs - that's too aggressive
             if any(domain in s for domain in self.SUSPICIOUS_DOMAINS):
-                suspicious_urls.append(s)
-            # Generic URLs only if they look suspicious (not just schema URLs)
-            elif not any(schema in s for schema in ["schemas.", "www.w3.org", "xmlns"]):
                 suspicious_urls.append(s)
 
         # Create context
