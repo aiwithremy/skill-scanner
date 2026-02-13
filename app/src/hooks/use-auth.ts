@@ -37,35 +37,20 @@ export function useAuth(): AuthState {
       }
     }
 
-    async function init() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        setUser(user);
-
-        if (user) {
-          await fetchProfile(user.id);
-        }
-      } catch {
-        // Auth check failed — treat as not logged in
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    init();
-
+    // Use onAuthStateChange as the single source of truth.
+    // It fires INITIAL_SESSION synchronously with the cookie-based session,
+    // avoiding the network round-trip that getUser() requires.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
+      if (session?.user) {
         setUser(session.user);
         await fetchProfile(session.user.id);
-      } else if (event === "SIGNED_OUT") {
+      } else {
         setUser(null);
         setProfile(null);
       }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
