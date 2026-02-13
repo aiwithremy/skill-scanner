@@ -82,9 +82,15 @@ export default function ScanProgressPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
 
-  // Mock data
-  const skillName = "weather-assistant-skill";
-  const fileCount = 23;
+  // Read skill name from localStorage (set during upload/scan initiation)
+  const [skillName, setSkillName] = useState("skill");
+  useEffect(() => {
+    const stored = localStorage.getItem("pending_skill_name");
+    if (stored) {
+      setSkillName(stored);
+      localStorage.removeItem("pending_skill_name");
+    }
+  }, []);
 
   const allComplete = steps.every((s) => s.status === "complete");
 
@@ -159,7 +165,7 @@ export default function ScanProgressPage() {
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               <FileCode2 className="mr-1 inline size-3.5" />
-              Analyzing {fileCount} files across 5 engines
+              Analyzing across 5 engines
             </p>
           </div>
 

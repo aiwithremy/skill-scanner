@@ -216,10 +216,13 @@ export async function POST(request: NextRequest) {
       await adminClient.from("scan_findings").insert(findings);
     }
 
+    const skillName = scanResults.skill_name || path?.split("/").pop() || repo;
+
     return NextResponse.json({
       scan_id: scan.id,
       status: "complete",
       trust_label: trustLabel,
+      skill_name: skillName,
     });
   } catch (error) {
     console.error("GitHub scan error:", error);

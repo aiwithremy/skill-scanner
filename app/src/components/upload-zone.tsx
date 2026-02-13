@@ -66,6 +66,9 @@ export function UploadZone({ onFileSelected, disabled }: UploadZoneProps) {
         // Successful scan
         if (data.scan_id) {
           localStorage.setItem("pending_scan_id", data.scan_id);
+          if (data.skill_name) {
+            localStorage.setItem("pending_skill_name", data.skill_name);
+          }
           router.push(`/scan/${data.scan_id}/progress`);
           return;
         }
