@@ -31,7 +31,7 @@ class UserMenuBoundary extends Component<
 
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, _debug } = useAuth();
 
   const isAuthed = !loading && !!user;
 
@@ -52,7 +52,7 @@ export function Navbar() {
           </Link>
           <ThemeToggle />
           {loading ? (
-            <span className="text-xs text-yellow-500">Loading...</span>
+            <span className="text-xs text-yellow-500">Loading... [{_debug}]</span>
           ) : isAuthed ? (
             <div className="flex items-center gap-3">
               <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">

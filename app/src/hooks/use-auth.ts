@@ -14,17 +14,27 @@ interface AuthState {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  /** Temporary debug info — remove once auth is confirmed working */
+  _debug?: string;
 }
 
 export function useAuth(): AuthState {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [debug, setDebug] = useState("mount");
 
   useEffect(() => {
-    const supabase = createClient();
+    let resolved = false;
 
-    async function fetchProfile(userId: string) {
+    function resolve() {
+      if (!resolved) {
+        resolved = true;
+        setLoading(false);
+      }
+    }
+
+    async function fetchProfile(supabase: ReturnType<typeof createClient>, userId: string) {
       try {
         const { data } = await supabase
           .from("profiles")
@@ -33,28 +43,58 @@ export function useAuth(): AuthState {
           .single();
         if (data) setProfile(data);
       } catch {
-        // Profile may not exist yet — that's fine
+        // Profile may not exist yet
       }
     }
 
-    // Use onAuthStateChange as the single source of truth.
-    // It fires INITIAL_SESSION synchronously with the cookie-based session,
-    // avoiding the network round-trip that getUser() requires.
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
-      setLoading(false);
-    });
+    try {
+      setDebug("creating client");
+      const supabase = createClient();
+      setDebug("client created");
 
-    return () => subscription.unsubscribe();
+      // Primary: getSession reads from cookies, no network call
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        setDebug(`session: ${session ? session.user?.email : "null"}`);
+        if (session?.user) {
+          setUser(session.user);
+          await fetchProfile(supabase, session.user.id);
+        }
+        resolve();
+      }).catch((err) => {
+        setDebug(`session error: ${err?.message}`);
+        resolve();
+      });
+
+      // Also listen for future changes (sign in/out after initial load)
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
+        setDebug(`auth event: ${event}`);
+        if (session?.user) {
+          setUser(session.user);
+          await fetchProfile(supabase, session.user.id);
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+          setProfile(null);
+        }
+        resolve();
+      });
+
+      // Safety timeout — never stay stuck on loading
+      const timeout = setTimeout(() => {
+        setDebug("timeout (3s)");
+        resolve();
+      }, 3000);
+
+      return () => {
+        clearTimeout(timeout);
+        subscription.unsubscribe();
+      };
+    } catch (err) {
+      setDebug(`init error: ${err instanceof Error ? err.message : String(err)}`);
+      resolve();
+    }
   }, []);
 
-  return { user, profile, loading };
+  return { user, profile, loading, _debug: debug };
 }
