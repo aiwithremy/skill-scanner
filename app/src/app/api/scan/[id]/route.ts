@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
   request: NextRequest,
@@ -7,13 +8,14 @@ export async function GET(
 ) {
   const { id } = await params;
   const supabase = await createClient();
+  const adminClient = createAdminClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch scan — RLS handles access control (own scans + public scans)
-  const { data: scan, error } = await supabase
+  // Use admin client to bypass RLS for access-control checks
+  const { data: scan, error } = await adminClient
     .from("scans")
     .select("*")
     .eq("id", id)
@@ -23,13 +25,32 @@ export async function GET(
     return NextResponse.json({ error: "Scan not found" }, { status: 404 });
   }
 
-  // Check access: owner or public
-  if (scan.user_id !== user?.id && !scan.is_public) {
+  // Access control
+  const isOwner = user && scan.user_id === user.id;
+  const isUnclaimed = scan.user_id === null;
+  const isPublic = scan.is_public;
+
+  // Unclaimed scan + anonymous viewer → prompt sign-in
+  if (isUnclaimed && !user) {
+    return NextResponse.json(
+      {
+        requires_auth: true,
+        trust_label: scan.trust_label,
+        skill_name: scan.skill_name,
+        findings_count: scan.findings_count,
+        scan_id: scan.id,
+      },
+      { status: 403 }
+    );
+  }
+
+  // Not owner, not public, and not unclaimed-for-this-user
+  if (!isOwner && !isPublic && !isUnclaimed) {
     return NextResponse.json({ error: "Scan not found" }, { status: 404 });
   }
 
   // Fetch findings
-  const { data: findings } = await supabase
+  const { data: findings } = await adminClient
     .from("scan_findings")
     .select("*")
     .eq("scan_id", id)

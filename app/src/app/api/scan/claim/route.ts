@@ -53,6 +53,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Admin accounts get unlimited free scans
+  const ADMIN_EMAILS = ["remy@remygaskell.com"];
+  const isAdmin = ADMIN_EMAILS.includes(user.email ?? "");
+
   // Determine credit type: free scan or paid
   const { data: profile } = await adminClient
     .from("profiles")
@@ -60,7 +64,7 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  if (profile) {
+  if (profile && !isAdmin) {
     const now = new Date();
     const lastFreeScan = profile.free_scan_last_used
       ? new Date(profile.free_scan_last_used)

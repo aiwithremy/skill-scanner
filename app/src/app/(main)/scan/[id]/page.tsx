@@ -146,6 +146,11 @@ export default function ScanResultPage() {
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [requiresAuth, setRequiresAuth] = useState<{
+    trust_label: TrustLabel;
+    skill_name: string;
+    findings_count: number;
+  } | null>(null);
   const [showFullReport, setShowFullReport] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sharingLoading, setSharingLoading] = useState(false);
@@ -156,8 +161,20 @@ export default function ScanResultPage() {
       try {
         setLoading(true);
         setError(null);
+        setRequiresAuth(null);
         const res = await fetch(`/api/scan/${id}`);
         if (!res.ok) {
+          if (res.status === 403) {
+            const data = await res.json();
+            if (data.requires_auth) {
+              setRequiresAuth({
+                trust_label: data.trust_label,
+                skill_name: data.skill_name,
+                findings_count: data.findings_count,
+              });
+              return;
+            }
+          }
           if (res.status === 404) {
             setError("Scan not found.");
           } else {
@@ -234,6 +251,72 @@ export default function ScanResultPage() {
             Loading scan results...
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Auth required state — scan completed but user needs to sign in
+  if (requiresAuth) {
+    const authConfig = trustLabelConfig[requiresAuth.trust_label];
+    const AuthIcon = trustLabelIcons[requiresAuth.trust_label];
+
+    return (
+      <div className="mx-auto max-w-5xl px-6 py-12 md:py-16">
+        <Link
+          href="/"
+          className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-3.5" />
+          Back to scanner
+        </Link>
+        <Card className="relative rounded-none shadow-zinc-950/5">
+          <CardDecorator />
+          <CardContent className="flex flex-col items-center py-16 text-center">
+            <div
+              className="mb-4 flex size-16 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: `color-mix(in srgb, var(--${requiresAuth.trust_label === "safe" ? "trust-safe" : requiresAuth.trust_label === "caution" ? "trust-caution" : requiresAuth.trust_label === "unsafe" ? "trust-unsafe" : requiresAuth.trust_label === "dangerous" ? "trust-dangerous" : "trust-inconclusive"}) 12%, transparent)`,
+              }}
+            >
+              <AuthIcon
+                className={`size-8 ${authConfig.colorClass}`}
+                strokeWidth={1.5}
+              />
+            </div>
+
+            <Badge
+              className={`mb-3 rounded-md px-4 py-1.5 text-lg font-semibold ${authConfig.bgClass} text-white border-0`}
+            >
+              {authConfig.label}
+            </Badge>
+
+            <h2 className="mt-2 text-lg font-semibold">
+              Your scan is ready
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground max-w-md">
+              We found {requiresAuth.findings_count} finding{requiresAuth.findings_count !== 1 ? "s" : ""} in{" "}
+              <span className="font-mono font-medium text-foreground">
+                {requiresAuth.skill_name}
+              </span>
+              . Sign in to view the full report.
+            </p>
+
+            <hr className="my-6 w-full max-w-xs border-dashed" />
+
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <Button asChild className="w-full gap-2">
+                <Link href="/auth/signup">
+                  Create a free account
+                </Link>
+              </Button>
+              <Button variant="outline" asChild className="w-full gap-2">
+                <Link href="/auth/login">
+                  Sign in
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

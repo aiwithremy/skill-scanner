@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardDecorator } from "@/components/card-decorator";
 import {
@@ -77,6 +77,7 @@ const STEP_DURATIONS = [1800, 2200, 3400, 1200, 2000];
 
 export default function ScanProgressPage() {
   const router = useRouter();
+  const { id } = useParams<{ id: string }>();
   const [steps, setSteps] = useState<AnalyzerStep[]>(INITIAL_STEPS);
   const [currentStep, setCurrentStep] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -130,14 +131,14 @@ export default function ScanProgressPage() {
     return cleanup;
   }, [currentStep, advanceStep]);
 
-  // Redirect to results when complete (mock: uses a placeholder ID)
+  // Redirect to results when animation completes
   useEffect(() => {
     if (!allComplete) return;
     const timer = setTimeout(() => {
-      router.push("/scan/scan_abc123def456");
+      router.push(`/scan/${id}`);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [allComplete, router]);
+  }, [allComplete, router, id]);
 
   const completedCount = steps.filter((s) => s.status === "complete").length;
   const progressPercent = (completedCount / steps.length) * 100;
