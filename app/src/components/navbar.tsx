@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Component, useState, type ReactNode, type ErrorInfo } from "react";
 import { Coins, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,25 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
+
+class UserMenuBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: string }
+> {
+  state = { hasError: false, error: "" };
+  static getDerivedStateFromError(err: Error) {
+    return { hasError: true, error: err.message };
+  }
+  componentDidCatch(err: Error, info: ErrorInfo) {
+    console.error("[UserMenu crash]", err, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return <span className="text-xs text-red-500">Error: {this.state.error}</span>;
+    }
+    return this.props.children;
+  }
+}
 
 export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -35,12 +54,14 @@ export function Navbar() {
           {loading ? (
             <div className="h-8 w-16" />
           ) : isAuthed ? (
-            <UserMenu
-              displayName={profile?.display_name ?? user.user_metadata?.full_name ?? null}
-              avatarUrl={profile?.avatar_url ?? user.user_metadata?.avatar_url ?? null}
-              email={user.email ?? ""}
-              creditsBalance={profile?.credits_balance ?? 0}
-            />
+            <UserMenuBoundary>
+              <UserMenu
+                displayName={profile?.display_name ?? user.user_metadata?.full_name ?? null}
+                avatarUrl={profile?.avatar_url ?? user.user_metadata?.avatar_url ?? null}
+                email={user.email ?? ""}
+                creditsBalance={profile?.credits_balance ?? 0}
+              />
+            </UserMenuBoundary>
           ) : (
             <Button variant="outline" size="sm" asChild>
               <Link href="/auth/login">Sign in</Link>
