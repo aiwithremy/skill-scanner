@@ -25,25 +25,33 @@ export function useAuth(): AuthState {
     const supabase = createClient();
 
     async function fetchProfile(userId: string) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("display_name, avatar_url, credits_balance")
-        .eq("id", userId)
-        .single();
-      setProfile(data);
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("display_name, avatar_url, credits_balance")
+          .eq("id", userId)
+          .single();
+        if (data) setProfile(data);
+      } catch {
+        // Profile may not exist yet — that's fine
+      }
     }
 
     async function init() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setUser(user);
 
-      if (user) {
-        await fetchProfile(user.id);
+        if (user) {
+          await fetchProfile(user.id);
+        }
+      } catch {
+        // Auth check failed — treat as not logged in
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     }
 
     init();

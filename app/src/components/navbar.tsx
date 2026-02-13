@@ -36,8 +36,8 @@ export function Navbar() {
             <div className="h-8 w-16" />
           ) : isAuthed ? (
             <UserMenu
-              displayName={profile?.display_name ?? null}
-              avatarUrl={profile?.avatar_url ?? null}
+              displayName={profile?.display_name ?? user.user_metadata?.full_name ?? null}
+              avatarUrl={profile?.avatar_url ?? user.user_metadata?.avatar_url ?? null}
               email={user.email ?? ""}
               creditsBalance={profile?.credits_balance ?? 0}
             />
@@ -75,9 +75,9 @@ export function Navbar() {
             {isAuthed && (
               <>
                 <div className="flex items-center gap-2 pb-2 border-b border-dashed">
-                  {profile?.avatar_url ? (
+                  {(profile?.avatar_url || user.user_metadata?.avatar_url) ? (
                     <img
-                      src={profile.avatar_url}
+                      src={profile?.avatar_url || user.user_metadata?.avatar_url}
                       alt=""
                       className="size-6 rounded-full"
                     />
@@ -85,6 +85,7 @@ export function Navbar() {
                     <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
                       {(
                         profile?.display_name ||
+                        user.user_metadata?.full_name ||
                         user.email ||
                         "U"
                       )
@@ -93,7 +94,7 @@ export function Navbar() {
                     </span>
                   )}
                   <span className="text-sm font-medium">
-                    {profile?.display_name || user.email?.split("@")[0]}
+                    {profile?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0]}
                   </span>
                 </div>
                 <Link
