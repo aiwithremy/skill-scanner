@@ -52,16 +52,26 @@ export function Navbar() {
           </Link>
           <ThemeToggle />
           {loading ? (
-            <div className="h-8 w-16" />
+            <span className="text-xs text-yellow-500">Loading...</span>
           ) : isAuthed ? (
-            <UserMenuBoundary>
-              <UserMenu
-                displayName={profile?.display_name ?? user.user_metadata?.full_name ?? null}
-                avatarUrl={profile?.avatar_url ?? user.user_metadata?.avatar_url ?? null}
-                email={user.email ?? ""}
-                creditsBalance={profile?.credits_balance ?? 0}
-              />
-            </UserMenuBoundary>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
+                {profile?.credits_balance ?? 0} credits
+              </span>
+              <Link href="/dashboard" className="text-sm font-medium text-foreground hover:underline">
+                Dashboard
+              </Link>
+              <button
+                onClick={async () => {
+                  const supabase = createClient();
+                  await supabase.auth.signOut();
+                  window.location.href = "/";
+                }}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Sign out
+              </button>
+            </div>
           ) : (
             <Button variant="outline" size="sm" asChild>
               <Link href="/auth/login">Sign in</Link>
